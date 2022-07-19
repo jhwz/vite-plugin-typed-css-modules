@@ -1,0 +1,34 @@
+{
+  "name": "vite-plugin-typed-css-modules",
+  "version": "0.0.1",
+  "description": "Generate type definition files for css modules",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"no tests available\"",
+    "preversion": "npm run build",
+    "postversion": "git push && git push --tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jhwz/vite-plugin-typed-css-modules.git"
+  },
+  "keywords": [
+    "vite-plugin"
+  ],
+  "author": "Joel Howse",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jhwz/vite-plugin-typed-css-modules/issues"
+  },
+  "homepage": "https://github.com/jhwz/vite-plugin-typed-css-modules#readme",
+  "dependencies": {
+    "typed-css-modules": "^0.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.6",
+    "typescript": "^4.7.4",
+    "vite": "^3.0.2"
+  }
+}
