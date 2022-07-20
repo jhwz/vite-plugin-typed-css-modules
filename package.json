@@ -14,6 +14,10 @@
     "type": "git",
     "url": "git+https://github.com/jhwz/vite-plugin-typed-css-modules.git"
   },
+  "files": [
+    "src",
+    "dist"
+  ],
   "keywords": [
     "vite-plugin"
   ],

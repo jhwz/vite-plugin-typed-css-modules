@@ -11,7 +11,7 @@
     "importsNotUsedAsValues": "error",
     "isolatedModules": true,
     "preserveValueImports": true,
-    "outDir": ".",
+    "outDir": "dist",
     "lib": ["esnext", "DOM"]
   },
   "include": ["src/**/*.ts"],
