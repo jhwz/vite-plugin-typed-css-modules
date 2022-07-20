@@ -1,4 +1,4 @@
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
 import { DtsCreator } from "typed-css-modules/lib/dts-creator.js";
 import fs from "fs";
 
@@ -7,13 +7,16 @@ function plugin(): Plugin {
 
   return {
     name: "typed-css-modules",
-    config: () => ({
-      css: {
-        modules: {
-          localsConvention: "camelCaseOnly",
+    config: () => {
+      const config: UserConfig = {
+        css: {
+          modules: {
+            localsConvention: "camelCaseOnly",
+          },
         },
-      },
-    }),
+      };
+      return config;
+    },
     configureServer: (server) => {
       server.watcher.on("change", async (path) => {
         if (!path.endsWith(".module.css")) return;
