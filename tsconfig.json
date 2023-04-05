@@ -8,9 +8,7 @@
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,
-    "importsNotUsedAsValues": "error",
-    "isolatedModules": true,
-    "preserveValueImports": true,
+    "verbatimModuleSyntax": true,
     "outDir": "dist",
     "lib": ["esnext", "DOM"]
   },
