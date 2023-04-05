@@ -31,7 +31,7 @@
     "typed-css-modules": "^0.7.2"
   },
   "devDependencies": {
-    "@types/node": "^18.0.6",
+    "@types/node": "^18.15.11",
     "typescript": "^5.0.3",
     "vite": "^3.0.2"
   }
