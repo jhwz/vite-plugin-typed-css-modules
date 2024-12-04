@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-typed-css-modules",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Generate type definition files for css modules",
   "main": "dist/index.js",
   "type": "module",
