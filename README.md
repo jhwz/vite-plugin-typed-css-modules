@@ -42,10 +42,10 @@ const config = {
   plugins: [
     typedCssModulesPlugin({
       // Include specific file patterns (default: '**/*.module.css')
-      include: ['**/*.module.css', '**/*.module.scss'],
-      
+      include: ['**/*.module.css'],
+
       // Exclude files from processing
-      ignore: ['**/node_modules/**', '**/dist/**'],
+      ignore: [],
       
       // Enable verbose logging for debugging
       verbose: true,
