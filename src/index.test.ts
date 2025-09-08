@@ -1,7 +1,7 @@
-import path from "path";
 import fs from "fs";
-import { expect, test, vi } from "vitest";
-import { build, createServer, type BuildOptions, type InlineConfig, type Plugin } from "vite";
+import path from "path";
+import { build, createServer, type InlineConfig } from "vite";
+import { expect, test } from "vitest";
 import plugin, { type TypedCssModulesOptions } from "./index.js";
 
 const fixturesDir = path.resolve(__dirname, "__fixtures__");

@@ -1,17 +1,5 @@
 {
-  "compilerOptions": {
-    "target": "es2019",
-    "module": "nodenext",
-    "moduleResolution": "nodenext",
-    "declaration": true,
-    "sourceMap": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "esModuleInterop": true,
-    "verbatimModuleSyntax": true,
-    "outDir": "dist",
-    "lib": ["esnext", "DOM"]
-  },
+  "extends": "./tsconfig.build.json",
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }
