@@ -51,6 +51,15 @@ function createTestDir(options?: TypedCssModulesOptions) {
         [Symbol.dispose]: () => {
             fs.rmSync(testDir, { recursive: true });
         },
+        readFileSync(file: string) {
+            return fs.readFileSync(path.join(testDir, file), "utf-8");
+        },
+        writeFileSync(file: string, content: string) {
+            return fs.writeFileSync(path.join(testDir, file), content);
+        },
+        existsSync(file: string) {
+            return fs.existsSync(path.join(testDir, file));
+        },
     };
 }
 
@@ -67,12 +76,6 @@ async function createTestServer(options?: TypedCssModulesOptions) {
     return {
         ...dir,
         server,
-        readFileSync(file: string) {
-            return fs.readFileSync(path.join(dir.buildOptions.root, file), "utf-8");
-        },
-        writeFileSync(file: string, content: string) {
-            return fs.writeFileSync(path.join(dir.buildOptions.root, file), content);
-        },
         waitForFileChange() {
             return new Promise<void>((resolve) => {
                 const watcher = server.watcher;
@@ -179,5 +182,40 @@ test('watch file deletion', async () => {
     await ctx.waitForFileChange();
 
     // verify the .d.ts file was deleted
-    expect(fs.existsSync(path.join(ctx.buildOptions.root, sampleCssModuleDtsName))).toBe(false);
+    expect(ctx.existsSync(sampleCssModuleDtsName)).toBe(false);
+});
+
+
+test('include pattern option', async () => {
+    await using ctx = await createTestServer({
+        include: '**/*.styles.css',
+        ignore: "**/__*"
+    });
+
+    const cssContent = `.button { background: red; }`;
+
+    // Create a file that matches the include pattern
+    const stylesCssName = "sample.styles.css";
+    ctx.writeFileSync(stylesCssName, cssContent);
+    await ctx.waitForFileChange();
+
+    // Create a file that matches the exclude pattern
+    const ignoreCssName = `__${stylesCssName}`;
+    ctx.writeFileSync(ignoreCssName, cssContent);
+    await ctx.waitForFileChange();
+
+    expect(ctx.existsSync(sampleCssModuleDtsName)).toBe(false);
+
+    expect(ctx.existsSync(stylesCssName + ".d.ts")).toBe(true);
+    expect(ctx.existsSync(ignoreCssName + ".d.ts")).toBe(false);
+});
+
+test('deprecated fileExtension option', async () => {
+    await using ctx = await createTestServer({ fileExtension: '.css' });
+
+    ctx.writeFileSync(`test.css`, `.header { color: blue; }`);
+
+    await ctx.waitForFileChange();
+
+    expect(ctx.existsSync(`test.css.d.ts`)).toBe(true);
 });
