@@ -49,7 +49,7 @@ function createTestDir(options?: TypedCssModulesOptions) {
     return {
         buildOptions,
         [Symbol.dispose]: () => {
-            fs.rmSync(testDir, { recursive: true, force: true });
+            fs.rmSync(testDir, { recursive: true });
         },
     };
 }
