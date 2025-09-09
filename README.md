@@ -15,7 +15,7 @@ npm install vite-plugin-typed-css-modules
 ## Usage
 
 > [!TIP]
-> It's recommended to add `*.module.css` to your `.gitignore` file to avoid committing the generated `.d.ts` files to your repository.
+> It's recommended to add `*.module.css.dts` to your `.gitignore` file to avoid committing the generated `.d.ts` files to your repository.
 
 ```js
 // vite.config.js
