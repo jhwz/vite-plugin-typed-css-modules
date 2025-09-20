@@ -5,8 +5,9 @@
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
-    "build": "tsc",
-    "test": "echo \"no tests available\"",
+    "build": "tsc --project tsconfig.build.json",
+    "test": "vitest",
+    "test-run": "vitest run",
     "preversion": "npm run build",
     "postversion": "git push && git push --tags"
   },
@@ -16,7 +17,9 @@
   },
   "files": [
     "src",
-    "dist"
+    "dist",
+    "!**/*.test.*",
+    "!**/__fixtures__"
   ],
   "keywords": [
     "vite-plugin"
@@ -32,7 +35,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.1",
-    "typescript": "^5.0.3",
-    "vite": "^6.0.2"
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5",
+    "vitest": "^3.2.4"
   }
 }
