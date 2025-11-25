@@ -1,11 +1,13 @@
-import fs from 'fs';
-import { DtsCreator } from 'typed-css-modules/lib/dts-creator.js';
+import fs from "fs";
+import { DtsCreator } from "typed-css-modules/lib/dts-creator.js";
 import {
   createFilter,
-  type FilterPattern, type PluginOption, type UserConfig,
-} from 'vite';
+  type FilterPattern,
+  type PluginOption,
+  type UserConfig,
+} from "vite";
 
-const defaultFilesGlob = '**/*.module.css';
+const defaultFilesGlob = "**/*.module.css";
 
 export type TypedCssModulesOptions = {
   /**
@@ -44,9 +46,13 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
   let include: FilterPattern = options?.include ?? defaultFilesGlob;
   if (options?.fileExtension) {
     if (options.include) {
-      throw new Error(`Pick either the \`include\` or \`fileExtension\` option, not both.`);
+      throw new Error(
+        `Pick either the \`include\` or \`fileExtension\` option, not both.`,
+      );
     }
-    include = coerceArray(options.fileExtension).map((extension) => `**/*${extension}`);
+    include = coerceArray(options.fileExtension).map(
+      (extension) => `**/*${extension}`,
+    );
   }
 
   const filter = createFilter(include ?? defaultFilesGlob, options?.ignore);
@@ -62,59 +68,74 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
   }
   function isCssModule(file: string) {
     const result = filter(file);
-    debugLog(`[isCssModule] ${file} is ${result ? 'a CSS module' : 'not a CSS module'}`);
+    debugLog(
+      `[isCssModule] ${file} is ${result ? "a CSS module" : "not a CSS module"}`,
+    );
     return result;
   }
 
   async function generateTypeDefinitions(file: string) {
-    debugLog(`[generateTypeDefinitions] Generating type definitions for ${file}`);
+    debugLog(
+      `[generateTypeDefinitions] Generating type definitions for ${file}`,
+    );
     const dts = await creator.create(file, undefined, true);
     await dts.writeFile();
-    debugLog(`[generateTypeDefinitions] Wrote type definitions at ${dts.outputFilePath}`);
+    debugLog(
+      `[generateTypeDefinitions] Wrote type definitions at ${dts.outputFilePath}`,
+    );
   }
 
   return {
-    name: 'typed-css-modules',
+    name: "typed-css-modules",
     config() {
       const config: UserConfig = {
         css: {
           modules: {
-            localsConvention: 'camelCaseOnly',
+            localsConvention: "camelCaseOnly",
           },
         },
       };
       return config;
     },
     async buildStart(options) {
-      const files = Object.values(options.input).filter(isCssModule);
-
-      await Promise.all(files.map(generateTypeDefinitions));
+      if (options.input) {
+        const files = Object.values(options.input).filter(isCssModule);
+        await Promise.all(files.map(generateTypeDefinitions));
+      }
     },
     async watchChange(file, change) {
       if (!isCssModule(file)) {
-        debugLog(`[watchChange:${change.event}] Skipping type definitions for ${file} because it does not match files glob`);
+        debugLog(
+          `[watchChange:${change.event}] Skipping type definitions for ${file} because it does not match files glob`,
+        );
         return;
       }
 
       await (async () => {
         switch (change.event) {
-          case 'create':
-          case 'update': {
-            debugLog(`[watchChange:${change.event}] Generating type definitions for ${file}`);
+          case "create":
+          case "update": {
+            debugLog(
+              `[watchChange:${change.event}] Generating type definitions for ${file}`,
+            );
 
             await generateTypeDefinitions(file);
 
             return;
           }
-          case 'delete': {
-            debugLog(`[watchChange:${change.event}] Deleting type definitions for ${file}`);
+          case "delete": {
+            debugLog(
+              `[watchChange:${change.event}] Deleting type definitions for ${file}`,
+            );
 
             const dtsPath = `${file}.d.ts`;
 
             if (fs.existsSync(dtsPath)) {
               fs.unlinkSync(dtsPath);
             } else {
-              debugLog(`[watchChange:${change.event}] Type definitions for ${file} not found`);
+              debugLog(
+                `[watchChange:${change.event}] Type definitions for ${file} not found`,
+              );
             }
 
             return;
@@ -125,7 +146,9 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
         }
       })().catch((error) => {
         // eslint-disable-next-line no-console
-        console.error(`[typed-css-modules] [watchChange:${change.event}] Error processing ${file}: ${error}`);
+        console.error(
+          `[typed-css-modules] [watchChange:${change.event}] Error processing ${file}: ${error}`,
+        );
       });
     },
   };
