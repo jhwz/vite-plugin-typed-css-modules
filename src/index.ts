@@ -1,4 +1,5 @@
 import fs from "fs";
+import path from "path";
 import { DtsCreator } from "typed-css-modules/lib/dts-creator.js";
 import {
   createFilter,
@@ -29,6 +30,13 @@ export type TypedCssModulesOptions = {
   verbose?: boolean;
 
   /**
+   * Optionally provide a root directory to write the generated types out into.
+   * This can be used in conjunction with typescripts `rootDirs` option to avoid polluting your work tree.
+   * @default undefined
+   */
+  rootDir?: string;
+
+  /**
    * @deprecated use {@link TypedCssModulesOptions.include} instead
    */
   fileExtension?: `.${string}` | `.${string}`[];
@@ -57,6 +65,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
 
   const filter = createFilter(include ?? defaultFilesGlob, options?.ignore);
   const verbose: boolean = options?.verbose ?? false;
+  const rootDir = options?.rootDir;
 
   const creator = new DtsCreator({ camelCase: true });
 
@@ -74,15 +83,30 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     return result;
   }
 
+  function getRelativePath(file: string): string {
+    return path.isAbsolute(file) ? path.relative(process.cwd(), file) : file;
+  }
+
   async function generateTypeDefinitions(file: string) {
     debugLog(
       `[generateTypeDefinitions] Generating type definitions for ${file}`,
     );
     const dts = await creator.create(file, undefined, true);
-    await dts.writeFile();
-    debugLog(
-      `[generateTypeDefinitions] Wrote type definitions at ${dts.outputFilePath}`,
-    );
+
+    if (rootDir) {
+      const relativePath = getRelativePath(file);
+      const outputPath = path.join(rootDir, `${relativePath}.d.ts`);
+      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+      fs.writeFileSync(outputPath, dts.formatted);
+      debugLog(
+        `[generateTypeDefinitions] Wrote type definitions at ${outputPath}`,
+      );
+    } else {
+      await dts.writeFile();
+      debugLog(
+        `[generateTypeDefinitions] Wrote type definitions at ${dts.outputFilePath}`,
+      );
+    }
   }
 
   return {
@@ -128,7 +152,9 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
               `[watchChange:${change.event}] Deleting type definitions for ${file}`,
             );
 
-            const dtsPath = `${file}.d.ts`;
+            const dtsPath = rootDir
+              ? path.join(rootDir, `${getRelativePath(file)}.d.ts`)
+              : `${file}.d.ts`;
 
             if (fs.existsSync(dtsPath)) {
               fs.unlinkSync(dtsPath);
