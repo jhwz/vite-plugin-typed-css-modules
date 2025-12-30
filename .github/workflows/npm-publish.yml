@@ -2,8 +2,12 @@ name: Node.js Package
 
 on:
   push:
-    tags:        
-      - '*'  
+    tags:
+      - "*"
+
+permissions:
+  contents: read
+  id-token: write # Required for OIDC
 
 jobs:
   build:
@@ -27,6 +31,4 @@ jobs:
           registry-url: https://registry.npmjs.org/
       - run: npm ci
       - run: npm run build
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.npm_token}}
+      - run: npm publish --access public
