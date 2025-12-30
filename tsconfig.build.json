@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
     "outDir": "dist",
     "lib": ["esnext", "DOM"],
   },

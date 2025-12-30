@@ -48,8 +48,13 @@ function assertUnreachable(value: never): never {
   throw new Error(`Unreachable value: ${value}`);
 }
 
-function coerceArray<T>(value: T | T[]): T[] {
-  return Array.isArray(value) ? value : [value];
+function coerceArray<T>(
+  value: T | T[] | readonly T[] | null | undefined
+): T[] {
+  if (value === null || value === undefined) {
+    return [];
+  }
+  return Array.isArray(value) ? value : [value as T];
 }
 
 function plugin(options?: TypedCssModulesOptions): PluginOption {
@@ -65,12 +70,35 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     );
   }
 
-  const filter = createFilter(include ?? defaultFilesGlob, options?.ignore);
+  const filter = createFilter(include, options?.ignore);
   const verbose: boolean = options?.verbose ?? false;
   const rootDir = options?.rootDir;
   let viteConfig: ResolvedConfig | null = null;
 
   const creator = new DtsCreator({ camelCase: true });
+
+  /** All of the glob patterns from the `include` option. */
+  const includeGlobPatterns = coerceArray(include).filter(
+    (pattern): pattern is string => typeof pattern === "string",
+  );
+
+  /** All of the glob patterns from the `ignore` option. */
+  const ignoreGlobPatterns = coerceArray(options?.ignore).filter(
+    (pattern): pattern is string => typeof pattern === "string",
+  );
+
+  /** All of the regex patterns from the `include` option. */
+  const includeRegexPatterns = coerceArray(include).filter(
+    (pattern): pattern is RegExp => pattern instanceof RegExp,
+  );
+
+  /** All of the regex patterns from the `ignore` option. */
+  const ignoreRegexPatterns = coerceArray(options?.ignore).filter(
+    (pattern): pattern is RegExp => pattern instanceof RegExp,
+  );
+
+  /** A filter that only applies the regex patterns. */
+  const regexFilter = createFilter(includeRegexPatterns, ignoreRegexPatterns);
 
   function debugLog(message: string) {
     if (verbose) {
@@ -112,6 +140,26 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     }
   }
 
+  /**
+   * Get all files in the project that match the include pattern, excluding
+   * those that match the ignore pattern.
+   */
+  async function getAllMatchingFiles(): Promise<string[]> {
+
+    // find all files matching the include glob patterns and exclude those
+    // matching the ignore glob patterns
+    const files = await glob(includeGlobPatterns, {
+      cwd: viteConfig?.root ?? process.cwd(),
+      ignore: ["node_modules/**", ...ignoreGlobPatterns],
+      absolute: true,
+    });
+
+    // run through regex filter to apply regex patterns
+    const matchingFiles = files.filter(regexFilter);
+
+    return matchingFiles;
+  }
+
   return {
     name: "typed-css-modules",
     config() {
@@ -124,23 +172,16 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
       };
       return config;
     },
-    configResolved(config: ResolvedConfig) {
-      viteConfig = config;
+    configResolved(resolvedConfig) {
+      viteConfig = resolvedConfig;
     },
-    async buildStart() {
-      if (viteConfig) {
-        function relevantPatterns(p: FilterPattern | undefined) {
-          return (Array.isArray(p) ? [...p] : [p]).filter(
-            (v): v is string => typeof v === "string",
-          );
-        }
-        let matches = await glob(relevantPatterns(include), {
-          cwd: viteConfig.root,
-          absolute: true,
-          ignore: ["node_modules/**", ...relevantPatterns(options?.ignore)],
-        });
-        await Promise.all(matches.filter(filter).map(generateTypeDefinitions));
-      }
+    async buildStart(options) {
+
+      const files = await getAllMatchingFiles();
+
+      debugLog(`[buildStart] Found ${files.length} matching files:\n${files.join("\n")}`);
+
+      await Promise.all(files.map(generateTypeDefinitions));
     },
     async watchChange(file, change) {
       if (!isCssModule(file)) {
