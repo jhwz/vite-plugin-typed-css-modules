@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    "skipLibCheck": true,
     "target": "es2019",
     "module": "nodenext",
     "moduleResolution": "nodenext",
@@ -11,7 +12,7 @@
     "verbatimModuleSyntax": true,
     "noUncheckedIndexedAccess": true,
     "outDir": "dist",
-    "lib": ["esnext", "DOM"]
+    "lib": ["esnext", "DOM"],
   },
-  "include": ["src/index.ts"]
+  "include": ["src/index.ts"],
 }
