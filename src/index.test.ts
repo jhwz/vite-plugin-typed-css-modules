@@ -121,6 +121,40 @@ test("build", async () => {
     `);
 });
 
+test("build generates types for CSS modules not in rollup input", async () => {
+  using ctx = createTestDir();
+
+  // Add a second CSS module that is NOT in the rollup input
+  const extraCssModuleName = "extra.module.css";
+  ctx.writeFileSync(extraCssModuleName, `.button { color: red; }`);
+
+  // Build with only index.js as input (no CSS modules in input)
+  await build({
+    ...ctx.buildOptions,
+    build: {
+      rollupOptions: {
+        input: {
+          main: path.join(ctx.buildOptions.root, "index.js"),
+        },
+      },
+    },
+  });
+
+  // Both CSS modules should have .d.ts files generated
+  expect(ctx.existsSync(sampleCssModuleDtsName)).toBe(true);
+  expect(ctx.existsSync(`${extraCssModuleName}.d.ts`)).toBe(true);
+
+  const extraDtsContent = ctx.readFileSync(`${extraCssModuleName}.d.ts`);
+  expect(extraDtsContent).toMatchInlineSnapshot(`
+      "declare const styles: {
+        readonly "button": string;
+      };
+      export = styles;
+
+      "
+    `);
+});
+
 test("watch file creation", async () => {
   await using ctx = await createTestServer();
 

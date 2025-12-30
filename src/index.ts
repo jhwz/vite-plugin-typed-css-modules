@@ -1,10 +1,12 @@
 import fs from "fs";
 import path from "path";
+import { glob } from "tinyglobby";
 import { DtsCreator } from "typed-css-modules/lib/dts-creator.js";
 import {
   createFilter,
   type FilterPattern,
   type PluginOption,
+  type ResolvedConfig,
   type UserConfig,
 } from "vite";
 
@@ -66,6 +68,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
   const filter = createFilter(include ?? defaultFilesGlob, options?.ignore);
   const verbose: boolean = options?.verbose ?? false;
   const rootDir = options?.rootDir;
+  let viteConfig: ResolvedConfig | null = null;
 
   const creator = new DtsCreator({ camelCase: true });
 
@@ -121,10 +124,22 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
       };
       return config;
     },
-    async buildStart(options) {
-      if (options.input) {
-        const files = Object.values(options.input).filter(isCssModule);
-        await Promise.all(files.map(generateTypeDefinitions));
+    configResolved(config: ResolvedConfig) {
+      viteConfig = config;
+    },
+    async buildStart() {
+      if (viteConfig) {
+        function relevantPatterns(p: FilterPattern | undefined) {
+          return (Array.isArray(p) ? [...p] : [p]).filter(
+            (v): v is string => typeof v === "string",
+          );
+        }
+        let matches = await glob(relevantPatterns(include), {
+          cwd: viteConfig.root,
+          absolute: true,
+          ignore: ["node_modules/**", ...relevantPatterns(options?.ignore)],
+        });
+        await Promise.all(matches.filter(filter).map(generateTypeDefinitions));
       }
     },
     async watchChange(file, change) {
