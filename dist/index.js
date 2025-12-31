@@ -88,6 +88,7 @@ function plugin(options) {
             }
         }
         catch (error) {
+            // eslint-disable-next-line no-console
             console.error(`[typed-css-modules] Error generating type definitions for ${file}: ${error}`);
             // In dev mode, log the error instead of throwing to avoid crashing the
             // server. In build mode, re-throw the error to fail the build.
@@ -132,16 +133,37 @@ function plugin(options) {
             return config;
         },
         configResolved(resolvedConfig) {
-            var _a;
             viteConfig = resolvedConfig;
             const relativeRootOutputDir = options === null || options === void 0 ? void 0 : options.rootDir;
             if (relativeRootOutputDir) {
                 // resolve the root output dir relative to the project root
                 rootOutputDir = path.join(getProjectRoot(), relativeRootOutputDir);
             }
-            const relativeSrcDir = (_a = options === null || options === void 0 ? void 0 : options.srcDir) !== null && _a !== void 0 ? _a : defaultSrcDir;
-            // resolve the src dir relative to the project root
-            srcDir = path.join(getProjectRoot(), relativeSrcDir);
+            if (options === null || options === void 0 ? void 0 : options.srcDir) {
+                srcDir = path.join(getProjectRoot(), options.srcDir);
+                if (!fs.existsSync(srcDir)) {
+                    debugLog(`[configResolved] Warning: srcDir "${options.srcDir}" ` +
+                        `resolved to "${srcDir}" does not exist.`);
+                    // Assume the user knows what they are doing if they explicitly
+                    // specify options.srcDir and proceed. This allows for scenarios
+                    // where the srcDir may be generated later.
+                }
+            }
+            else {
+                const absoluteDefaultSrcDir = path.join(getProjectRoot(), defaultSrcDir);
+                if (fs.existsSync(absoluteDefaultSrcDir)) {
+                    // Only use the default "src" directory if it actually exists. Do not
+                    // break projects that do not use a "src" folder and which do not use
+                    // the `rootDir` anyway, in which case the `srcDir` doesn't matter.
+                    srcDir = absoluteDefaultSrcDir;
+                    debugLog(`[configResolved] Using default srcDir: ${srcDir}`);
+                }
+                else {
+                    // otherwise, fall back to using the project root
+                    srcDir = getProjectRoot();
+                    debugLog(`[configResolved] Using project root as srcDir: ${srcDir}`);
+                }
+            }
         },
         async buildStart(options) {
             const files = await getAllMatchingFiles();

@@ -49,7 +49,7 @@ export type TypedCssModulesOptions = {
    * `src-gen/components/Button.module.css.d.ts` (not
    * `src-gen/src/components/...`).
    *
-   * @default "src".
+   * Default: "src" if it exists; otherwise, the project root.
    */
   srcDir?: string;
 
@@ -170,6 +170,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
         );
       }
     } catch (error) {
+      // eslint-disable-next-line no-console
       console.error(
         `[typed-css-modules] Error generating type definitions for ${file}: ${error}`,
       );
@@ -229,9 +230,41 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
         // resolve the root output dir relative to the project root
         rootOutputDir = path.join(getProjectRoot(), relativeRootOutputDir);
       }
-      const relativeSrcDir = options?.srcDir ?? defaultSrcDir;
-      // resolve the src dir relative to the project root
-      srcDir = path.join(getProjectRoot(), relativeSrcDir);
+
+      if (options?.srcDir) {
+        srcDir = path.join(getProjectRoot(), options.srcDir);
+        if (!fs.existsSync(srcDir)) {
+          debugLog(
+            `[configResolved] Warning: srcDir "${options.srcDir}" ` +
+            `resolved to "${srcDir}" does not exist.`
+          );
+          // Assume the user knows what they are doing if they explicitly
+          // specify options.srcDir and proceed. This allows for scenarios
+          // where the srcDir may be generated later.
+        }
+      }
+      else {
+        const absoluteDefaultSrcDir = path.join(
+          getProjectRoot(),
+          defaultSrcDir,
+        );
+        if (fs.existsSync(absoluteDefaultSrcDir)) {
+          // Only use the default "src" directory if it actually exists. Do not
+          // break projects that do not use a "src" folder and which do not use
+          // the `rootDir` anyway, in which case the `srcDir` doesn't matter.
+          srcDir = absoluteDefaultSrcDir;
+          debugLog(
+            `[configResolved] Using default srcDir: ${srcDir}`
+          );
+        }
+        else {
+          // otherwise, fall back to using the project root
+          srcDir = getProjectRoot();
+          debugLog(
+            `[configResolved] Using project root as srcDir: ${srcDir}`
+          );
+        }
+      }
     },
     async buildStart(options) {
 

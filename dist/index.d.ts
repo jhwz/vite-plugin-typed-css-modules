@@ -1,12 +1,12 @@
 import { type FilterPattern, type PluginOption } from "vite";
 export type TypedCssModulesOptions = {
     /**
-     * A glob pattern to match the files to scan for CSS modules.
+     * Patterns to match the files to scan for CSS modules.
      * Defaults to any `*.module.css` files in the project.
      */
     include?: FilterPattern;
     /**
-     * A glob pattern to match the files to ignore.
+     * Patterns to match the files to ignore.
      * @default undefined
      */
     ignore?: FilterPattern;
@@ -16,9 +16,9 @@ export type TypedCssModulesOptions = {
      */
     verbose?: boolean;
     /**
-     * Optionally provide a root directory to write the generated types out into.
-     * This can be used in conjunction with typescripts `rootDirs` option to avoid
-     * polluting your work tree.
+     * Optionally provide a root directory (relative to the project root) to write
+     * the generated types out into. This can be used in conjunction with
+     * typescripts `rootDirs` option to avoid polluting your work tree.
      *
      * @default undefined
      */
@@ -34,7 +34,7 @@ export type TypedCssModulesOptions = {
      * `src-gen/components/Button.module.css.d.ts` (not
      * `src-gen/src/components/...`).
      *
-     * @default "src".
+     * Default: "src" if it exists; otherwise, the project root.
      */
     srcDir?: string;
     /**
