@@ -36,7 +36,6 @@
   },
   "dependencies": {
     "fdir": "^6.5.0",
-    "tinyglobby": "^0.2.15",
     "typed-css-modules": "^0.9.1"
   },
   "devDependencies": {
