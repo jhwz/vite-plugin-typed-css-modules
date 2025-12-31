@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { glob } from "tinyglobby";
+import { fdir } from "fdir";
 import { DtsCreator } from "typed-css-modules/lib/dts-creator.js";
 import {
   createFilter,
@@ -70,35 +70,14 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     );
   }
 
-  const filter = createFilter(include, options?.ignore);
-  const verbose: boolean = options?.verbose ?? false;
-  const rootDir = options?.rootDir;
   let viteConfig: ResolvedConfig | null = null;
 
+  let _filter: ((id: string | unknown) => boolean) | null = null;
+
+  const verbose: boolean = options?.verbose ?? false;
+  let rootOutputDir = options?.rootDir;
+
   const creator = new DtsCreator({ camelCase: true });
-
-  /** All of the glob patterns from the `include` option. */
-  const includeGlobPatterns = coerceArray(include).filter(
-    (pattern): pattern is string => typeof pattern === "string",
-  );
-
-  /** All of the glob patterns from the `ignore` option. */
-  const ignoreGlobPatterns = coerceArray(options?.ignore).filter(
-    (pattern): pattern is string => typeof pattern === "string",
-  );
-
-  /** All of the regex patterns from the `include` option. */
-  const includeRegexPatterns = coerceArray(include).filter(
-    (pattern): pattern is RegExp => pattern instanceof RegExp,
-  );
-
-  /** All of the regex patterns from the `ignore` option. */
-  const ignoreRegexPatterns = coerceArray(options?.ignore).filter(
-    (pattern): pattern is RegExp => pattern instanceof RegExp,
-  );
-
-  /** A filter that only applies the regex patterns. */
-  const regexFilter = createFilter(includeRegexPatterns, ignoreRegexPatterns);
 
   function debugLog(message: string) {
     if (verbose) {
@@ -106,58 +85,99 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
       console.debug(`[typed-css-modules] ${message}`);
     }
   }
+  function getProjectRoot(): string {
+    return viteConfig?.root ?? process.cwd();
+  }
+  function filter(id: string | unknown): boolean {
+    if (!_filter) {
+      // we must defer creating the filter until the vite config has been
+      // resolved to properly resolve the project root directory
+      _filter = createFilter(include, options?.ignore, {
+        resolve: getProjectRoot()
+      });
+    }
+    return _filter(id);
+  }
   function isCssModule(file: string) {
+    if (file.endsWith(".d.ts")) {
+      // prevent .d.ts files from matching, resulting in infinite loops
+      return false;
+    }
     const result = filter(file);
     debugLog(
-      `[isCssModule] ${file} is ${result ? "a CSS module" : "not a CSS module"}`,
+      `[isCssModule] ${file} is ${result ? "a CSS module" : "not a CSS module"}`
     );
     return result;
   }
 
   function getRelativePath(file: string): string {
-    return path.isAbsolute(file) ? path.relative(process.cwd(), file) : file;
+    return path.isAbsolute(file) ? path.relative(getProjectRoot(), file) : file;
   }
 
   async function generateTypeDefinitions(file: string) {
-    debugLog(
-      `[generateTypeDefinitions] Generating type definitions for ${file}`,
-    );
-    const dts = await creator.create(file, undefined, true);
+    try {
+      debugLog(
+        `[generateTypeDefinitions] Generating type definitions for ${file}`,
+      );
+      const dts = await creator.create(file, undefined, true);
 
-    if (rootDir) {
-      const relativePath = getRelativePath(file);
-      const outputPath = path.join(rootDir, `${relativePath}.d.ts`);
-      fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-      fs.writeFileSync(outputPath, dts.formatted);
-      debugLog(
-        `[generateTypeDefinitions] Wrote type definitions at ${outputPath}`,
+      if (rootOutputDir) {
+        const relativePath = getRelativePath(file);
+        const outputPath = path.join(rootOutputDir, `${relativePath}.d.ts`);
+        fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+        fs.writeFileSync(outputPath, dts.formatted);
+        debugLog(
+          `[generateTypeDefinitions] Wrote type definitions at ${outputPath}`,
+        );
+      } else {
+        await dts.writeFile();
+        debugLog(
+          `[generateTypeDefinitions] Wrote type definitions at ${dts.outputFilePath}`,
+        );
+      }
+    } catch (error) {
+      console.error(
+        `[typed-css-modules] Error generating type definitions for ${file}: ${error}`,
       );
-    } else {
-      await dts.writeFile();
-      debugLog(
-        `[generateTypeDefinitions] Wrote type definitions at ${dts.outputFilePath}`,
-      );
+      // In dev mode, log the error instead of throwing to avoid crashing the
+      // server. In build mode, re-throw the error to fail the build.
+      if (viteConfig?.command !== "serve") {
+        throw error;
+      }
     }
   }
 
   /**
-   * Get all files in the project that match the include pattern, excluding
-   * those that match the ignore pattern.
+   * Get all files in the project that match the include patterns, excluding
+   * those that match the ignore patterns.
    */
   async function getAllMatchingFiles(): Promise<string[]> {
 
-    // find all files matching the include glob patterns and exclude those
-    // matching the ignore glob patterns
-    const files = await glob(includeGlobPatterns, {
-      cwd: viteConfig?.root ?? process.cwd(),
-      ignore: ["node_modules/**", ...ignoreGlobPatterns],
-      absolute: true,
-    });
+    const rootDir = getProjectRoot();
 
-    // run through regex filter to apply regex patterns
-    const matchingFiles = files.filter(regexFilter);
+    const walker = new fdir()
+      .withFullPaths()
+      .exclude((dirName, dirPath) => {
+        // exclude node_modules
+        return dirName === "node_modules";
+      })
+      .filter((path, isDirectory) => {
+        if (isDirectory) {
+          // never skip directories
+          return true;
+        }
+        if (path.endsWith(".d.ts")) {
+          // prevent .d.ts files from matching, resulting in infinite loops
+          return false;
+        }
+        return filter(path);
+      })
+      .crawl(rootDir);
 
-    return matchingFiles;
+    const files = walker.sync();
+
+    return files;
+
   }
 
   return {
@@ -174,19 +194,27 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     },
     configResolved(resolvedConfig) {
       viteConfig = resolvedConfig;
+      const relativeRootOutputDir = options?.rootDir;
+      if (relativeRootOutputDir) {
+        // resolve the root output dir relative to the project root
+        rootOutputDir = path.join(getProjectRoot(), relativeRootOutputDir);
+      }
+
     },
     async buildStart(options) {
 
       const files = await getAllMatchingFiles();
 
-      debugLog(`[buildStart] Found ${files.length} matching files:\n${files.join("\n")}`);
+      const filesString = files.length > 0 ? `:\n${files.join("\n")}\n` : "";
+      debugLog(`[buildStart] Found ${files.length} matching files${filesString}`);
 
       await Promise.all(files.map(generateTypeDefinitions));
     },
     async watchChange(file, change) {
       if (!isCssModule(file)) {
         debugLog(
-          `[watchChange:${change.event}] Skipping type definitions for ${file} because it does not match files glob`,
+          `[watchChange:${change.event}] Skipping type definitions for ` +
+          `${file} because it does not match the filter`
         );
         return;
       }
@@ -208,8 +236,8 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
               `[watchChange:${change.event}] Deleting type definitions for ${file}`,
             );
 
-            const dtsPath = rootDir
-              ? path.join(rootDir, `${getRelativePath(file)}.d.ts`)
+            const dtsPath = rootOutputDir
+              ? path.join(rootOutputDir, `${getRelativePath(file)}.d.ts`)
               : `${file}.d.ts`;
 
             if (fs.existsSync(dtsPath)) {

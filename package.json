@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
+    "watch": "tsc --project tsconfig.build.json --watch",
     "test": "vitest",
     "test-run": "vitest run",
     "preversion": "npm run build",
@@ -31,9 +32,10 @@
   },
   "homepage": "https://github.com/jhwz/vite-plugin-typed-css-modules#readme",
   "peerDependencies": {
-    "vite": "^7.1.5"
+    "vite": "^7.3.0"
   },
   "dependencies": {
+    "fdir": "^6.5.0",
     "tinyglobby": "^0.2.15",
     "typed-css-modules": "^0.9.1"
   },
