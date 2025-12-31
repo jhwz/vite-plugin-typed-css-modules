@@ -4,6 +4,7 @@ import { fdir } from "fdir";
 import { DtsCreator } from "typed-css-modules/lib/dts-creator.js";
 import { createFilter, } from "vite";
 const defaultFilesGlob = "**/*.module.css";
+const defaultSrcDir = "src";
 function assertUnreachable(value) {
     throw new Error(`Unreachable value: ${value}`);
 }
@@ -13,8 +14,16 @@ function coerceArray(value) {
     }
     return Array.isArray(value) ? value : [value];
 }
+/**
+ * Returns true if `filePath` is located within `folderPath`. However, does not
+ * check if the file or folder actually exist on disk.
+ */
+function isInFolder(filePath, folderPath) {
+    const relative = path.relative(folderPath, filePath);
+    return !relative.startsWith("..");
+}
 function plugin(options) {
-    var _a, _b;
+    var _a, _b, _c;
     let include = (_a = options === null || options === void 0 ? void 0 : options.include) !== null && _a !== void 0 ? _a : defaultFilesGlob;
     if (options === null || options === void 0 ? void 0 : options.fileExtension) {
         if (options.include) {
@@ -25,7 +34,10 @@ function plugin(options) {
     let viteConfig = null;
     let _filter = null;
     const verbose = (_b = options === null || options === void 0 ? void 0 : options.verbose) !== null && _b !== void 0 ? _b : false;
+    // the absolute paths to both of these directories must be resolved relative
+    // to the project root directory
     let rootOutputDir = options === null || options === void 0 ? void 0 : options.rootDir;
+    let srcDir = (_c = options === null || options === void 0 ? void 0 : options.srcDir) !== null && _c !== void 0 ? _c : defaultSrcDir;
     const creator = new DtsCreator({ camelCase: true });
     function debugLog(message) {
         if (verbose) {
@@ -33,31 +45,31 @@ function plugin(options) {
             console.debug(`[typed-css-modules] ${message}`);
         }
     }
+    /** Returns the absolute path to the project root. */
     function getProjectRoot() {
         var _a;
         return (_a = viteConfig === null || viteConfig === void 0 ? void 0 : viteConfig.root) !== null && _a !== void 0 ? _a : process.cwd();
     }
     function filter(id) {
         if (!_filter) {
+            // prevent .d.ts files from matching, resulting in infinite loops
+            const ignore = [...coerceArray(options === null || options === void 0 ? void 0 : options.ignore), "**/*.d.ts"];
             // we must defer creating the filter until the vite config has been
             // resolved to properly resolve the project root directory
-            _filter = createFilter(include, options === null || options === void 0 ? void 0 : options.ignore, {
-                resolve: getProjectRoot()
+            _filter = createFilter(include, ignore, {
+                resolve: srcDir
             });
         }
         return _filter(id);
     }
     function isCssModule(file) {
-        if (file.endsWith(".d.ts")) {
-            // prevent .d.ts files from matching, resulting in infinite loops
-            return false;
-        }
         const result = filter(file);
         debugLog(`[isCssModule] ${file} is ${result ? "a CSS module" : "not a CSS module"}`);
         return result;
     }
+    /** Get the path of the file relative to the src root. */
     function getRelativePath(file) {
-        return path.isAbsolute(file) ? path.relative(getProjectRoot(), file) : file;
+        return path.isAbsolute(file) ? path.relative(srcDir, file) : file;
     }
     async function generateTypeDefinitions(file) {
         try {
@@ -89,7 +101,7 @@ function plugin(options) {
      * those that match the ignore patterns.
      */
     async function getAllMatchingFiles() {
-        const rootDir = getProjectRoot();
+        debugLog(`[getAllMatchingFiles] Scanning for files in srcDir: ${srcDir}`);
         const walker = new fdir()
             .withFullPaths()
             .exclude((dirName, dirPath) => {
@@ -97,14 +109,14 @@ function plugin(options) {
             return dirName === "node_modules";
         })
             .filter((path, isDirectory) => {
-            if (path.endsWith(".d.ts")) {
-                // prevent .d.ts files from matching, resulting in infinite loops
-                return false;
+            if (isDirectory) {
+                // never skip directories
+                return true;
             }
             return filter(path);
         })
-            .crawl(rootDir);
-        const files = walker.sync();
+            .crawl(srcDir);
+        const files = await walker.withPromise();
         return files;
     }
     return {
@@ -120,12 +132,16 @@ function plugin(options) {
             return config;
         },
         configResolved(resolvedConfig) {
+            var _a;
             viteConfig = resolvedConfig;
             const relativeRootOutputDir = options === null || options === void 0 ? void 0 : options.rootDir;
             if (relativeRootOutputDir) {
                 // resolve the root output dir relative to the project root
                 rootOutputDir = path.join(getProjectRoot(), relativeRootOutputDir);
             }
+            const relativeSrcDir = (_a = options === null || options === void 0 ? void 0 : options.srcDir) !== null && _a !== void 0 ? _a : defaultSrcDir;
+            // resolve the src dir relative to the project root
+            srcDir = path.join(getProjectRoot(), relativeSrcDir);
         },
         async buildStart(options) {
             const files = await getAllMatchingFiles();
@@ -134,6 +150,11 @@ function plugin(options) {
             await Promise.all(files.map(generateTypeDefinitions));
         },
         async watchChange(file, change) {
+            if (!isInFolder(file, srcDir)) {
+                debugLog(`[watchChange:${change.event}] Skipping type definitions for ` +
+                    `${file} because it is outside of srcDir: ${srcDir}`);
+                return;
+            }
             if (!isCssModule(file)) {
                 debugLog(`[watchChange:${change.event}] Skipping type definitions for ` +
                     `${file} because it does not match the filter`);

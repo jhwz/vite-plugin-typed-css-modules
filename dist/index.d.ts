@@ -17,10 +17,26 @@ export type TypedCssModulesOptions = {
     verbose?: boolean;
     /**
      * Optionally provide a root directory to write the generated types out into.
-     * This can be used in conjunction with typescripts `rootDirs` option to avoid polluting your work tree.
+     * This can be used in conjunction with typescripts `rootDirs` option to avoid
+     * polluting your work tree.
+     *
      * @default undefined
      */
     rootDir?: string;
+    /**
+     * The source directory (relative to the project root) that serves as the root
+     * for computing relative paths. When `rootDir` is set, this option ensures
+     * that generated `.d.ts` files mirror the directory structure of your source
+     * files starting from `srcDir`.
+     *
+     * For example, with `srcDir: "src"` and `rootDir: "src-gen"`, a file at
+     * `src/components/Button.module.css` will generate a type definition at
+     * `src-gen/components/Button.module.css.d.ts` (not
+     * `src-gen/src/components/...`).
+     *
+     * @default "src".
+     */
+    srcDir?: string;
     /**
      * @deprecated use {@link TypedCssModulesOptions.include} instead
      */
