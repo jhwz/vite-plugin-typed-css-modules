@@ -65,7 +65,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     );
   }
 
-  const filter = createFilter(include ?? defaultFilesGlob, options?.ignore);
+  const filter = createFilter(include, options?.ignore);
   const verbose: boolean = options?.verbose ?? false;
   const rootDir = options?.rootDir;
   let viteConfig: ResolvedConfig | null = null;
@@ -134,7 +134,21 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
             (v): v is string => typeof v === "string",
           );
         }
-        let matches = await glob(relevantPatterns(include), {
+
+        // Create glob pattern. If include doesn't include any Regex then we can pass the pattern
+        // directly to glob. If it does, we need to glob all files and do the filtering in
+        // memory.
+        let pattern: string | readonly string[] = "**";
+        if (typeof include === "string") {
+          pattern = include;
+        } else if (
+          Array.isArray(include) &&
+          include.every((v) => typeof v === "string")
+        ) {
+          pattern = include;
+        }
+
+        let matches = await glob(pattern, {
           cwd: viteConfig.root,
           absolute: true,
           ignore: ["node_modules/**", ...relevantPatterns(options?.ignore)],
