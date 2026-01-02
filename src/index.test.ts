@@ -57,7 +57,9 @@ function createTestDir(options?: TypedCssModulesOptions) {
       return fs.readFileSync(path.join(testDir, file), "utf-8");
     },
     writeFileSync(file: string, content: string) {
-      return fs.writeFileSync(path.join(testDir, file), content);
+      const filepath = path.join(testDir, file);
+      fs.mkdirSync(path.dirname(filepath), { recursive: true });
+      return fs.writeFileSync(filepath, content);
     },
     existsSync(file: string) {
       return fs.existsSync(path.join(testDir, file));
@@ -349,4 +351,22 @@ test("rootDir option deletes .d.ts from alternate directory on file deletion", a
   } finally {
     fs.rmSync(tempRootDir, { recursive: true });
   }
+});
+
+test("include pattern in subdir", async () => {
+  await using ctx = await createTestServer({
+    include: "subdir/**.css",
+  });
+
+  const cssContent = `.button { background: red; }`;
+
+  // Create a file that matches the include pattern
+  const outsideSubdirName = "sample.styles.css";
+  const inSubdirName = "subdir/sample.styles.css";
+  ctx.writeFileSync(outsideSubdirName, cssContent);
+  ctx.writeFileSync(inSubdirName, cssContent);
+  await ctx.waitForFileChange();
+
+  expect(ctx.existsSync(inSubdirName + ".d.ts")).toBe(true);
+  expect(ctx.existsSync(outsideSubdirName + ".d.ts")).toBe(false);
 });

@@ -2,3 +2,4 @@
 node_modules
 /dist
 /testproject
+**/__fixtures__/.test*

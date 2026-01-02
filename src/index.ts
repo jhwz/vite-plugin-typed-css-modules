@@ -65,7 +65,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     );
   }
 
-  const filter = createFilter(include, options?.ignore);
+  let filter: ReturnType<typeof createFilter>;
   const verbose: boolean = options?.verbose ?? false;
   const rootDir = options?.rootDir;
   let viteConfig: ResolvedConfig | null = null;
@@ -126,6 +126,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     },
     configResolved(config: ResolvedConfig) {
       viteConfig = config;
+      filter = createFilter(include, options?.ignore, { resolve: config.root });
     },
     async buildStart() {
       if (viteConfig) {
