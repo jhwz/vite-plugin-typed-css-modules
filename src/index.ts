@@ -67,7 +67,7 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
 
   let filter: ReturnType<typeof createFilter>;
   const verbose: boolean = options?.verbose ?? false;
-  const rootDir = options?.rootDir;
+  let rootDir = options?.rootDir;
   let viteConfig: ResolvedConfig | null = null;
 
   const creator = new DtsCreator({ camelCase: true });
@@ -87,7 +87,9 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
   }
 
   function getRelativePath(file: string): string {
-    return path.isAbsolute(file) ? path.relative(process.cwd(), file) : file;
+    return path.isAbsolute(file)
+      ? path.relative(viteConfig?.root ?? process.cwd(), file)
+      : file;
   }
 
   async function generateTypeDefinitions(file: string) {
@@ -127,6 +129,12 @@ function plugin(options?: TypedCssModulesOptions): PluginOption {
     configResolved(config: ResolvedConfig) {
       viteConfig = config;
       filter = createFilter(include, options?.ignore, { resolve: config.root });
+      if (rootDir) {
+        // If a rootDir is specified, resolve it to an absolute path relative to
+        // the Vite project root; otherwise, it would be resolved relative to
+        // the current working directory, which may be different.
+        rootDir = path.join(config.root, rootDir);
+      }
     },
     async buildStart() {
       if (viteConfig) {
